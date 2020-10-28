@@ -1,0 +1,28 @@
+"0","# Read in Data sets"
+"0","readings <- read_csv(""data/Microclimate_Sensor_Readings.csv"")"
+"2","
+[36m──[39m [1m[1mColumn specification[1m[22m [36m──────────────────────────[39m
+cols(
+  id = [32mcol_double()[39m,
+  site_id = [31mcol_character()[39m,
+  sensor_id = [31mcol_character()[39m,
+  value = [32mcol_double()[39m,
+  local_time = [31mcol_character()[39m,
+  type = [31mcol_character()[39m,
+  units = [31mcol_character()[39m
+)
+
+"
+"0","locations <- read_csv(""data/Microclimate_Sensor_Locations.csv"")"
+"2","
+[36m──[39m [1m[1mColumn specification[1m[22m [36m──────────────────────────[39m
+cols(
+  site_id = [31mcol_character()[39m,
+  description = [31mcol_character()[39m,
+  last_data = [31mcol_character()[39m,
+  latitude = [32mcol_double()[39m,
+  longitude = [32mcol_double()[39m,
+  location = [31mcol_character()[39m
+)
+
+"

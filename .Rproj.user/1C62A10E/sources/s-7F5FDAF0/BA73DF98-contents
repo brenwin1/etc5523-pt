@@ -1,0 +1,166 @@
+---
+title: "ETC5523 Group Presentation"
+author: 
+- "Brenwin"
+- "Pei Min"
+date: "27/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(tidyverse)
+library(lubridate)
+```
+
+```{r}
+# Read in Data sets
+readings <- read_csv("data/Microclimate_Sensor_Readings.csv")
+
+locations <- read_csv("data/Microclimate_Sensor_Locations.csv")
+```
+
+```{r}
+# filter to humidity & temperature
+readings1 <- readings %>% 
+  filter(type %in% c("TPH.TEMP", #ambient air temp. (AAT)
+                     "TPH.RH", # relative humidity (RH)
+                     "TPH.TEMP-EPA-1h", # AAT; 1-hr avg.
+                     "TPH.RH-EPA-1h")) %>% # RH; 1-hr avg
+  mutate(date_time = lubridate::ymd_hms(local_time),
+         .keep = "unused", 
+         .before = id) %>%
+  mutate(year = lubridate::year(date_time),
+         month = lubridate::month(date_time),
+         day = lubridate::day(date_time),
+         hour = lubridate::hour(date_time),
+         min = lubridate::minute(date_time),
+         .before = date_time) %>% 
+  mutate(date = as.Date(date_time, format = "%b"),
+         .before = date_time)
+```
+
+# How are humidity and temperature related?
+- the hotter the temperature; the more water air can hold
+  - here; check; r/s; between humidity & temperature 
+    - (linear// non-linear?; are there exogenous variables? *potentially pressure; cited in many sources)
+
+Plot 1 day; 15 mins interval; see if humidty & temperature; fluctuate much
+  - at different sites
+```{r}
+readings1 %>% 
+  filter(type %in% c("TPH.RH", "TPH.TEMP"),
+         date == ymd("2020-01-26")) %>% 
+  arrange(hour, min, site_id) %>% 
+  ggplot(aes(x = date_time,
+      y = value,
+      colour = type)) +
+  geom_line() +
+  facet_wrap(~site_id)
+```
+- RH & temperature; fluctuate a lot; in 15 minutes time frame
+- across all locations; similar trend
+- 12pm go up to slightly pass midnight; go down till 12pm
+  - sharp decline in the morning; ***possibly sunrise
+  *https://www.timeanddate.com/sun/australia/melbourne?month=1&year=2020
+  - add; line @ sunrise & sunset
+- as temperature increase; RH decrease
+  - amount of water; air can hold increase; so if absolute humidity stays the same; then RH decreases
+  
+- NOT GOOD plot; temp in celsius// RH; in %
+
+Average temp & average RH; over time  
+- since; same trend; across all locations
+```{r}
+# readings across all sensors
+readings_avg <- readings1 %>% 
+  filter(type %in% c("TPH.RH", "TPH.TEMP")) %>% # filter to 15 mins reading
+  # sumamrise readings across all sensors; every 15 mins
+  group_by(date_time, type) %>% 
+  summarise(mean_readings = mean(value))
+
+readings_avg_wide <- readings_avg %>% 
+  pivot_wider(names_from = type,
+              values_from = mean_readings)
+
+lm(TPH.RH ~ TPH.TEMP, data = readings_avg_wide)
+
+# plot RH against temp (facet by month)
+readings_avg_wide %>% 
+  mutate(month = lubridate::month(date_time)) %>% 
+  ggplot(aes(x = TPH.TEMP,
+                 y = TPH.RH)) +
+  geom_point(alpha = 0.3) +
+  # add linear line
+  geom_smooth(method = "lm") +
+  # facet by month
+  facet_wrap(~ month,
+             nrow = 4)
+
+# plot RH against temp (overall)
+readings_avg_wide %>% 
+  mutate(month = lubridate::month(date_time)) %>% 
+  ggplot(aes(x = TPH.TEMP,
+             y = TPH.RH)) +
+  geom_point(alpha = 0.3) +
+  # add linear line
+  geom_smooth(method = "lm") 
+```
+
+- see that; as temperature increases; RH decreases
+  - temperature increase; make you feel hot
+  - similarly; RH increase; make you feel hot
+  - theres trade off; temperature decreases; you'll still a little "hot/humid" because RH increases// and vice versa
+
+
+## RH across seasons
+```{r}
+# monthly readings
+monthly_readings <- readings1 %>% 
+  filter(type %in% c("TPH.TEMP-EPA-1h", "TPH.RH-EPA-1h")) %>%
+  group_by(month, year, type) %>% 
+  summarise(mean = round(mean(value),2)) %>% 
+  pivot_wider(names_from = type,
+              values_from = mean) %>% 
+  rename(monthly_RH = `TPH.RH-EPA-1h`,
+         monthly_temp = `TPH.TEMP-EPA-1h`)
+  
+p1 <- monthly_readings %>% 
+  ggplot(aes(x = month,
+                y = monthly_RH)) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(name = "Month", breaks = seq(from = 1, to = 12, by = 1)) + 
+  scale_y_continuous(name = "Monthly Relative Humidity", 
+                     breaks = seq(from = 20, to = 100, by = 20),
+                     limits = c(20, 100))
+
+p2 <- monthly_readings %>% 
+  ggplot(aes(x = month,
+                y = monthly_temp)) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(name = "Month", breaks = seq(from = 1, to = 12, by = 1)) +
+  scale_y_continuous(name = "Monthly temperature",
+                     breaks = seq(from = 0, to = 30, by = 5),
+                     limits = c(0, 30))
+ 
+library(patchwork)
+p1 / p2
+### potentially; fill area under geom_line *see geom_ribbon
+```
+RH
+- relatively humidity; ranges from 55.30 to 75.48
+- *note: used 2019 values; for November & December
+  - weirdly; RH; below 60
+  - otherwise; in 2020; rh; between 60.43 & 75.48; relatively stagnant
+- mean: 65.6
+  
+Temp
+- Not as much variation as I thought
+- mean: 15.3
+
+
+
+
